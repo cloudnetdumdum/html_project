@@ -1,0 +1,142 @@
+name: HTML Project CD - Azure VM
+
+on:
+
+  workflow_run:
+    workflows:
+      - HTML Project CI
+
+    types:
+      - completed
+
+jobs:
+
+  deploy:
+
+    # Deploy only when CI succeeds
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    name: Deploy Website to Azure VM
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ------------------------------------------------
+      # 1. Checkout project
+      # ------------------------------------------------
+
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+
+      # ------------------------------------------------
+      # 2. Create deployment package
+      # ------------------------------------------------
+
+      - name: Create Deployment Package
+        run: |
+
+          echo "Creating deployment package..."
+
+          zip -r website.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "website.zip"
+
+          echo "Package created successfully."
+
+          ls -lh website.zip
+
+
+      # ------------------------------------------------
+      # 3. Configure SSH
+      # ------------------------------------------------
+
+      - name: Configure SSH
+        run: |
+
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.AZURE_VM_SSH_KEY }}" > ~/.ssh/azure_vm_key
+
+          chmod 600 ~/.ssh/azure_vm_key
+
+          ssh-keyscan -H "${{ secrets.AZURE_VM_HOST }}" >> ~/.ssh/known_hosts
+
+
+      # ------------------------------------------------
+      # 4. Copy website to Azure VM
+      # ------------------------------------------------
+
+      - name: Upload Website to Azure VM
+        run: |
+
+          scp \
+            -i ~/.ssh/azure_vm_key \
+            website.zip \
+            ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/tmp/website.zip
+
+
+      # ------------------------------------------------
+      # 5. Deploy on Azure VM
+      # ------------------------------------------------
+
+      - name: Deploy Website
+        run: |
+
+          ssh \
+            -i ~/.ssh/azure_vm_key \
+            ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+
+            echo "Starting deployment..."
+
+            # Backup current website
+            sudo mkdir -p /var/www/backup
+
+            sudo rm -rf /var/www/backup/latest
+
+            sudo mkdir -p /var/www/backup/latest
+
+            sudo cp -r /var/www/html/. /var/www/backup/latest/ || true
+
+            # Remove old website
+            sudo rm -rf /var/www/html/*
+
+            # Extract new website
+            sudo unzip -o /tmp/website.zip -d /var/www/html
+
+            # Fix permissions
+            sudo chown -R www-data:www-data /var/www/html
+
+            sudo find /var/www/html -type d -exec chmod 755 {} \;
+
+            sudo find /var/www/html -type f -exec chmod 644 {} \;
+
+            # Test Nginx configuration
+            sudo nginx -t
+
+            # Restart Nginx
+            sudo systemctl restart nginx
+
+            # Remove temporary package
+            rm -f /tmp/website.zip
+
+            echo "Deployment completed successfully."
+
+          EOF
+
+
+      # ------------------------------------------------
+      # 6. Deployment complete
+      # ------------------------------------------------
+
+      - name: Deployment Success
+        run: |
+
+          echo "======================================"
+          echo "Azure VM Deployment Successful!"
+          echo "======================================"
+
+          echo "Server: ${{ secrets.AZURE_VM_HOST }}"
+          echo "Website deployed successfully."

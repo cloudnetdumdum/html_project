@@ -10,35 +10,49 @@ on:
       - main
 
 jobs:
+
   test:
+    name: Test HTML Project
     runs-on: ubuntu-latest
 
     steps:
 
+      # 1. Checkout source code
       - name: Checkout Code
         uses: actions/checkout@v5
 
+      # 2. Check HTML files
       - name: Check HTML Files
         run: |
-          echo "HTML files in project:"
+          echo "Checking HTML files..."
+
           find . -name "*.html" -print
 
+      # 3. Check index.html
       - name: Check index.html
         run: |
           if [ -f "index.html" ]; then
-            echo "index.html exists"
+            echo "index.html found"
           else
             echo "ERROR: index.html not found"
             exit 1
           fi
 
+      # 4. Check CSS files
       - name: Check CSS Files
         run: |
+          echo "CSS files:"
           find . -name "*.css" -print
 
+      # 5. Check JavaScript files
       - name: Check JavaScript Files
         run: |
+          echo "JavaScript files:"
           find . -name "*.js" -print
 
+      # 6. CI success
       - name: CI Success
-        run: echo "CI Pipeline completed successfully!"
+        run: |
+          echo "=============================="
+          echo "CI Pipeline Successful!"
+          echo "=============================="
