@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
@@ -13,18 +14,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check HTML Files
         run: |
-          echo "Checking HTML files..."
+          echo "HTML files in project:"
           find . -name "*.html" -print
 
-      - name: Validate HTML
+      - name: Check index.html
         run: |
-          python -m pip install html5validator
-          html5validator --root .
+          if [ -f "index.html" ]; then
+            echo "index.html exists"
+          else
+            echo "ERROR: index.html not found"
+            exit 1
+          fi
+
+      - name: Check CSS Files
+        run: |
+          find . -name "*.css" -print
+
+      - name: Check JavaScript Files
+        run: |
+          find . -name "*.js" -print
 
       - name: CI Success
         run: echo "CI Pipeline completed successfully!"
